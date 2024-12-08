@@ -73,13 +73,6 @@ class LogisticRegression(LinearModel):
         gradient = np.dot((probs - one_hot_y),np.expand_dims(x_i,axis=1).T)
         
         #Weight Updates
-        
-        '''
-         if(l2_penalty > 0):
-            self.W = ((1 - learning_rate*l2_penalty)*self.W) - (learning_rate*gradient)
-        else:
-            self.W -= learning_rate*gradient
-        '''
         self.W = ((1 - learning_rate*l2_penalty)*self.W) - (learning_rate*gradient)
         #raise NotImplementedError # Q1.2 (a,b)
 
@@ -87,12 +80,96 @@ class LogisticRegression(LinearModel):
 class MLP(object):
     def __init__(self, n_classes, n_features, hidden_size):
         # Initialize an MLP with a single hidden layer.
-        raise NotImplementedError # Q1.3 (a)
+        self.W = [
+            np.random.normal(0.1,0.1,(hidden_size, n_features)), #Input to hidden
+            np.random.normal(0.1,0.1,(n_classes, hidden_size)) #Hidden to output
+        ]
+        
+        self.b = [
+            np.zeros(hidden_size), #hidden
+            np.zeros(n_classes) #output
+        ]
+        #raise NotImplementedError # Q1.3 (a)
+    
+    def relu(self, x):
+        return np.maximum(0,x)
+    
+    def relu_derivative(self, x):
+        return np.where(x <= 0, 0, 1)
+        
+    def softmax(self,x):
+        exp_x = np.exp(x - np.max(x))
+        return exp_x / np.sum(exp_x, axis=0, keepdims=True)
+    
+    def forward(self, x):
+        num_layers = len(self.W)
+        hiddens = []
+        for i in range(num_layers):
+            h = x if i == 0 else hiddens[i-1]
+            z = self.W[i].dot(h) + self.b[i]
+            if i < num_layers - 1:
+                hiddens.append(self.relu(z))
+    
+        output = z
+                
+        return output, hiddens
+     
+    def compute_loss(self, output, y):
+        # Shift the logits by the maximum value for numerical stability
+        shifted_output = output - np.max(output)
+    
+        # Compute the log-sum-exp term
+        log_sum_exp = np.log(np.sum(np.exp(shifted_output)))
+    
+        # Compute the negative log-likelihood: -z_c (correct class logit)
+        neg_log_likelihood = -np.dot(y.T, output)
+    
+        # Final cross-entropy loss
+        loss = neg_log_likelihood + log_sum_exp
+    
+        return loss
 
+    
+    def backward(self, x, y, output, hiddens):
+        num_layers = len(self.W)
+        
+        probs = self.softmax(output)
+        grad_z = probs - y
+        
+        grad_weights = []
+        grad_biases = []
+        
+        #backpropagate gradient computations
+        for i in range(num_layers-1, -1, -1):
+            
+            #gradient of hidden parameters.
+            h = x if i == 0 else hiddens[i-1]
+            grad_weights.append(grad_z[:, None].dot(h[:, None].T))
+            grad_biases.append(grad_z)
+            
+            #gradient of hidden layer below
+            grad_h = self.W[i].T.dot(grad_z)
+            
+            #gradient of hidden layer below before activation
+            grad_z = grad_h * self.relu_derivative(h)
+            
+        #making gradient vectors have the correct order
+        grad_weights.reverse()
+        grad_biases.reverse()
+        return grad_weights, grad_biases
+            
+                  
     def predict(self, X):
         # Compute the forward pass of the network. At prediction time, there is
         # no need to save the values of hidden nodes.
-        raise NotImplementedError # Q1.3 (a)
+        predicted_labels = []
+        for i in range(X.shape[0]):
+            output, _ = self.forward(X[i])
+            y_hat = np.argmax(output)
+            predicted_labels.append(y_hat)
+        predicted_labels = np.array(predicted_labels)
+        return predicted_labels
+        #raise NotImplementedError # Q1.3 (a)
 
     def evaluate(self, X, y):
         """
@@ -109,7 +186,27 @@ class MLP(object):
         """
         Dont forget to return the loss of the epoch.
         """
-        raise NotImplementedError # Q1.3 (a)
+        num_layers = len(self.W)
+        total_loss = 0
+        
+        for x_i, y_i in zip(X,y):
+            output, hiddens = self.forward(x_i)
+            
+            one_hot_y = np.zeros(output.shape)
+            one_hot_y[y_i] = 1
+            
+            loss = self.compute_loss(output, one_hot_y)
+            total_loss += loss
+            
+            grad_weights, grad_biases = self.backward(x_i, one_hot_y, output, hiddens)
+            
+            for i in range(num_layers):
+                self.W[i] -= learning_rate*grad_weights[i]
+                self.b[i] -= learning_rate*grad_biases[i]
+            
+        return total_loss
+            
+        #raise NotImplementedError # Q1.3 (a)
 
 
 def plot(epochs, train_accs, val_accs, filename=None):
