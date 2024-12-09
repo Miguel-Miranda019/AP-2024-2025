@@ -68,7 +68,7 @@ class LogisticRegression(LinearModel):
         probs = np.exp(scores)/np.sum(np.exp(scores))
         
         #Calculate Gradient
-        one_hot_y = np.zeros((np.size(self.W,0),1))
+        one_hot_y = np.zeros((self.W.shape[0], 1))
         one_hot_y[y_i] = 1
         gradient = np.dot((probs - one_hot_y),np.expand_dims(x_i,axis=1).T)
         
@@ -91,16 +91,6 @@ class MLP(object):
         ]
         #raise NotImplementedError # Q1.3 (a)
     
-    def relu(self, x):
-        return np.maximum(0,x)
-    
-    def relu_derivative(self, x):
-        return np.where(x <= 0, 0, 1)
-        
-    def softmax(self,x):
-        exp_x = np.exp(x - np.max(x))
-        return exp_x / np.sum(exp_x, axis=0, keepdims=True)
-    
     def forward(self, x):
         num_layers = len(self.W)
         hiddens = []
@@ -108,32 +98,31 @@ class MLP(object):
             h = x if i == 0 else hiddens[i-1]
             z = self.W[i].dot(h) + self.b[i]
             if i < num_layers - 1:
-                hiddens.append(self.relu(z))
+                hiddens.append(np.maximum(0,z))
     
         output = z
                 
         return output, hiddens
      
     def compute_loss(self, output, y):
-        # Shift the logits by the maximum value for numerical stability
-        shifted_output = output - np.max(output)
-    
-        # Compute the log-sum-exp term
-        log_sum_exp = np.log(np.sum(np.exp(shifted_output)))
-    
-        # Compute the negative log-likelihood: -z_c (correct class logit)
+        # Compute the negative log-likelihood: -z_c
         neg_log_likelihood = -np.dot(y.T, output)
-    
-        # Final cross-entropy loss
+
+        # Compute the log-sum-exp term for numerical stability
+        log_sum_exp = np.log(np.sum(np.exp(output)))
+
+        # Cross-entropy loss: -z_c + log(sum(exp(z_j)))
         loss = neg_log_likelihood + log_sum_exp
-    
+
         return loss
+
 
     
     def backward(self, x, y, output, hiddens):
         num_layers = len(self.W)
         
-        probs = self.softmax(output)
+        exp_z = np.exp(output - np.max(output))
+        probs = exp_z / np.sum(exp_z)
         grad_z = probs - y
         
         grad_weights = []
@@ -151,7 +140,8 @@ class MLP(object):
             grad_h = self.W[i].T.dot(grad_z)
             
             #gradient of hidden layer below before activation
-            grad_z = grad_h * self.relu_derivative(h)
+            relu_deriv = np.where(h <= 0, 0, 1)
+            grad_z = grad_h * relu_deriv
             
         #making gradient vectors have the correct order
         grad_weights.reverse()
