@@ -29,6 +29,9 @@ class LogisticRegression(nn.Module):
         super().__init__()
         # In a pytorch module, the declarations of layers needs to come after
         # the super __init__ line, otherwise the magic doesn't work.
+        
+        # Define a linear layer with weights and bias
+        self.linear = nn.Linear(n_features, n_classes)
 
     def forward(self, x, **kwargs):
         """
@@ -44,7 +47,8 @@ class LogisticRegression(nn.Module):
         forward pass -- this is enough for it to figure out how to do the
         backward pass.
         """
-        raise NotImplementedError
+        return self.linear(x)
+        #raise NotImplementedError
 
 
 class FeedforwardNetwork(nn.Module):
@@ -65,7 +69,29 @@ class FeedforwardNetwork(nn.Module):
         """
         super().__init__()
         # Implement me!
-        raise NotImplementedError
+        if activation_type == 'relu':
+            self.activation = nn.ReLU()
+        elif activation_type == 'tanh':
+           self.activation = nn.Tanh()
+        else:
+            raise ValueError("Unsupported activation type")
+        self.dropout = nn.Dropout(dropout)
+        
+        #Create the input Layers
+        self.FeedForward = nn.Sequential()
+        self.FeedForward.append(nn.Linear(n_features, hidden_size))
+        self.FeedForward.append(self.activation)
+        self.FeedForward.append(self.dropout)
+        
+        #Create the hidden layers
+        for i in range(layers - 1):
+            self.FeedForward.append(nn.Linear(hidden_size, hidden_size))
+            self.FeedForward.append(self.activation)
+            self.FeedForward.append(self.dropout)
+        
+        #Create output Layer
+        self.FeedForward.append(nn.Linear(hidden_size, n_classes))
+        #raise NotImplementedError
 
     def forward(self, x, **kwargs):
         """
@@ -75,7 +101,8 @@ class FeedforwardNetwork(nn.Module):
         the output logits from x. This will include using various hidden
         layers, pointwise nonlinear functions, and dropout.
         """
-        raise NotImplementedError
+        return self.FeedForward(x)
+        #raise NotImplementedError
 
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
@@ -96,7 +123,23 @@ def train_batch(X, y, model, optimizer, criterion, **kwargs):
     This function should return the loss (tip: call loss.item()) to get the
     loss as a numerical value that is not part of the computation graph.
     """
-    raise NotImplementedError
+    #zero the gradients from the previous batch
+    optimizer.zero_grad()
+    
+    #forward pass
+    outputs = model(X)
+    
+    #compute loss
+    loss = criterion(outputs, y)
+    
+    #backward pass
+    loss.backward()
+    
+    #update model parameters
+    optimizer.step()
+    
+    return loss.item()
+    #raise NotImplementedError
 
 
 def predict(model, X):
@@ -159,7 +202,7 @@ def main():
                         choices=['tanh', 'relu'], default='relu')
     parser.add_argument('-optimizer',
                         choices=['sgd', 'adam'], default='sgd')
-    parser.add_argument('-data_path', type=str, default='intel_landscapes.npz',)
+    parser.add_argument('-data_path', type=str, default='intel_landscapes.v2.npz',)
     opt = parser.parse_args()
 
     utils.configure_seed(seed=42)
