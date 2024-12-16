@@ -84,7 +84,7 @@ class FeedforwardNetwork(nn.Module):
         self.FeedForward.append(self.dropout)
         
         #Create the hidden layers
-        for i in range(layers - 1):
+        for _ in range(layers - 1):
             self.FeedForward.append(nn.Linear(hidden_size, hidden_size))
             self.FeedForward.append(self.activation)
             self.FeedForward.append(self.dropout)

@@ -105,19 +105,17 @@ class MLP(object):
         return output, hiddens
      
     def compute_loss(self, output, y):
-        # Compute the negative log-likelihood: -z_c
-        neg_log_likelihood = -np.dot(y.T, output)
-
-        # Compute the log-sum-exp term for numerical stability
-        log_sum_exp = np.log(np.sum(np.exp(output)))
-
-        # Cross-entropy loss: -z_c + log(sum(exp(z_j)))
-        loss = neg_log_likelihood + log_sum_exp
-
-        return loss
-
-
+        # Compute the negative score of the correct class
+        correct_class_score = -np.dot(y.T, output)
     
+        # Compute the log-sum-exp term for numerical stability
+        log_partition = np.log(np.sum(np.exp(output)))
+    
+        # Cross-entropy loss: -z_c + log(sum(exp(z_j)))
+        cross_entropy = correct_class_score + log_partition
+    
+        return cross_entropy
+
     def backward(self, x, y, output, hiddens):
         num_layers = len(self.W)
         
